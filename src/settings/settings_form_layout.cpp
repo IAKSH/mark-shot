@@ -59,10 +59,14 @@ public:
             }
         }
         const bool compact = availableWidth < 440;
-        setRowWrapPolicy(compact ? QFormLayout::WrapAllRows : QFormLayout::DontWrapRows);
+        const auto wrapPolicy = compact ? QFormLayout::WrapAllRows : QFormLayout::DontWrapRows;
+        // 2. 【设置】【空闲布局】Qt 即使收到相同策略也会使布局失效，避免在几何计算中循环排队
+        if (rowWrapPolicy() != wrapPolicy) {
+            setRowWrapPolicy(wrapPolicy);
+        }
         const int labelWidth = parentWidget()->fontMetrics().height() * 7;
 
-        // 2. 【设置】【标签对齐】各分组采用相同标签列，长标签换行且保留控件关联
+        // 3. 【设置】【标签对齐】各分组采用相同标签列，长标签换行且保留控件关联
         for (int row = 0; row < rowCount(); ++row) {
             QLayoutItem *field = itemAt(row, QFormLayout::SpanningRole);
             auto *box = field ? qobject_cast<QCheckBox *>(field->widget()) : nullptr;
@@ -75,7 +79,9 @@ public:
             if (!label) {
                 continue;
             }
-            label->setWordWrap(true);
+            if (!label->wordWrap()) {
+                label->setWordWrap(true);
+            }
             label->setMinimumWidth(compact ? 0 : labelWidth);
             label->setMaximumWidth(compact ? QWIDGETSIZE_MAX : labelWidth);
         }

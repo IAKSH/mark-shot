@@ -11,8 +11,8 @@ target_compile_definitions(mark-shot-shell-command-test PRIVATE
 add_dependencies(mark-shot-shell-command-test mark-shot-ocr-fixture)
 add_test(NAME shell-command COMMAND mark-shot-shell-command-test -o -,txt)
 
-# 2. 【窗口测试】【真实入口】复用应用对象，分别检查贴图交互和历史窗口
-foreach(window_test IN ITEMS pinned-text-selection capture-history-window)
+# 2. 【窗口测试】【真实入口】复用应用对象，按功能分别检查实际窗口行为
+foreach(window_test IN ITEMS pinned-text-selection capture-history-window settings-idle-repaint)
     string(REPLACE "-" "_" source_name "${window_test}")
     qt_add_executable(mark-shot-${window_test}-test
         tests/${source_name}_test.cpp
@@ -31,6 +31,10 @@ foreach(window_test IN ITEMS pinned-text-selection capture-history-window)
     set_tests_properties(${window_test} PROPERTIES TIMEOUT 30
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_STYLE_OVERRIDE=Fusion;QT_SCALE_FACTOR=1")
 endforeach()
+
+add_test(NAME settings-idle-repaint-hidpi COMMAND mark-shot-settings-idle-repaint-test -o -,txt)
+set_tests_properties(settings-idle-repaint-hidpi PROPERTIES TIMEOUT 30
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_STYLE_OVERRIDE=Fusion;QT_SCALE_FACTOR=2")
 
 target_compile_definitions(mark-shot-pinned-text-selection-test PRIVATE
     MARK_SHOT_TEST_OCR_FIXTURE_PATH="$<TARGET_FILE:mark-shot-ocr-fixture>")

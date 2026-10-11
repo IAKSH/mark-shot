@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.57 - 2026-10-12
+
+### Features & Enhancements
+
+- **Arrow Shaft Styles**: Arrows now support `Solid`, `Dashed`, and `Dotted` line styles for straight and bent shafts in addition to head styles, with defaults persisted in annotation state.
+
+### Bug Fixes
+
+- **Scroll Stitching with Fixed Sidebars**: Sample eight narrow horizontal bands, mask stationary bands, drop the worst band from score aggregation, and reject drifting inside-known placements so captures over PDF thumbnail bars and documentation sidebars stitch reliably. Fixes #129.
+- **Settings Dialog Idle Repaint Loop**: Stop idle relayout loops caused by repeated layout invalidation from repainting the settings dialog.
+- **OCR ONNX Runtime Dynamic Fallback**: Fall back to the bundled ONNX Runtime when a conflicting system copy loads first, avoiding symbol mismatches.
+
 ## 0.1.56 - 2026-10-02
 
 ### Features & Enhancements

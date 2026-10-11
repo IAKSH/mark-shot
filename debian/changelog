@@ -1,3 +1,12 @@
+mark-shot (0.1.57-0ppa1~resolute1) resolute; urgency=medium
+
+  * Add dashed and dotted arrow shaft styles.
+  * Keep stitching scroll captures when selection includes fixed sidebars.
+  * Stop idle relayout loop from repainting the settings dialog.
+  * Fall back to bundled ONNX Runtime when system library conflicts.
+
+ -- Mark Shot maintainers <snemc@qq.com>  Mon, 12 Oct 2026 01:51:38 +0900
+
 mark-shot (0.1.56-0ppa1~resolute1) resolute; urgency=medium
 
   * Persist screen-sharing authorization across capture sessions and restarts.

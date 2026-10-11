@@ -1,5 +1,5 @@
 Name:           mark-shot
-Version:        0.1.56
+Version:        0.1.57
 Release:        1%{?dist}
 Summary:        Qt 6 screenshot selection and annotation tool
 
@@ -92,6 +92,9 @@ sed -i '1s|^#!/usr/bin/env python3$|#!/usr/bin/python3|' \
 %{_datadir}/gnome-shell/extensions/mark-shot-scroll-helper@snemc.org/
 
 %changelog
+* Mon Oct 12 2026 jswysnemc <snemc@qq.com> - 0.1.57-1
+- Add arrow shaft styles and keep scrolling capture stitching with fixed sidebars
+
 * Fri Oct 02 2026 jswysnemc <snemc@qq.com> - 0.1.56-1
 - Remember screen-sharing authorization and fix Wayland capture fallbacks
 

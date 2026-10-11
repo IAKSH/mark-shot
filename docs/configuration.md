@@ -250,10 +250,11 @@ The persisted snapshot covers:
 
 - Active drawing color and opacity, plus text background color.
 - Per-tool widths: pen, shape, number, mosaic block size, laser.
-- Rectangle fill, corner radius, and style (`Stroke` / `Highlight` / `Invert`).
+- Rectangle fill, corner radius, and style (`Stroke` / `Highlight` / `Invert` / `Spotlight`).
+- Mosaic style (`Pixelate` / `Blur` / `Grayscale` / `Invert` / `Brighten`).
 - Magnifier scale and lens shape (`Circle` / `Rectangle`).
-- Arrow style, highlighter style, and number badge style.
-- Text font family.
+- Arrow head and shaft line style (`Solid` / `Dashed` / `Dotted`), highlighter style, and number badge style.
+- Text font family, weight, and italic.
 
 Writes go through `QSaveFile` for atomic commits and are triggered immediately after every default-changing entry point (slider release, picker confirm, style toggle, font selection, color palette pick, etc.), so a crash never leaves the file half-written. Application-wide settings such as shortcuts, save path templates, OCR, translation, and upload remain in `config.json`.
 

@@ -1,5 +1,12 @@
 # Release Notes
 
+### 0.1.57
+
+- **Arrow Shaft Styles**: Arrow annotations support `Solid`, `Dashed`, and `Dotted` line styles for straight and bent shafts while keeping arrowheads intact.
+- **Scroll Stitching with Fixed Sidebars**: Robust multi-band sampling and motion masking allow scrolling captures to proceed smoothly across pages with stationary navigation bars or PDF thumbnail panes. Fixes #129.
+- **Settings Dialog Performance**: Stops the idle relayout loop from continually repainting the settings dialog.
+- **OCR ONNX Runtime Isolation**: Automatically falls back to the bundled ONNX Runtime when a conflicting system library is already loaded.
+
 ### 0.1.56
 
 - **Remembered Screen-Sharing Authorization**: When the desktop grants persistent permission, scrolling captures on the same display restore authorization across sessions and application restarts. Sharing ends when the capture closes. Revoked permissions, display changes, or unsupported portals may still require confirmation. See the [user guide](user-guide.md#6-scrolling-screenshot).

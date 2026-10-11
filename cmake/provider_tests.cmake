@@ -28,6 +28,7 @@ qt_add_executable(mark-shot-ocr-provider-factory-test
     src/providers/ocr/ocr_tesseract_task.h
     src/providers/provider_plugin_registry.cpp
     src/providers/provider_plugin_registry.h
+    src/providers/provider_runtime_dependencies.cpp
     src/providers/provider_plugin_paths.cpp
     src/providers/provider_plugin_paths.h
     src/providers/provider_process_task.cpp
@@ -80,6 +81,8 @@ if(TARGET mark-shot-ocr-rapid)
         src/marketplace/plugin_installer.cpp
         src/marketplace/plugin_updates.cpp
         src/providers/provider_plugin_paths.cpp
+        src/providers/provider_runtime_dependencies.cpp
+        src/debug_log.cpp
     )
     target_include_directories(mark-shot-ocr-rapid-plugin-test PRIVATE
         plugins/ocr-rapid
@@ -122,6 +125,22 @@ if(TARGET mark-shot-ocr-rapid)
     add_test(NAME ocr-rapid-plugin COMMAND mark-shot-ocr-rapid-plugin-test -o -,txt)
     set_tests_properties(ocr-rapid-plugin PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # 1. 【OCR测试】【版本冲突】不修改宿主机缓存，以进程级搜索路径模拟旧同名运行时优先
+        add_library(mark-shot-onnx-runtime-conflict SHARED tests/fixtures/onnx_runtime_conflict.c)
+        set_target_properties(mark-shot-onnx-runtime-conflict PROPERTIES
+            OUTPUT_NAME onnxruntime
+            SOVERSION 1
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/fixtures/onnx-conflict"
+        )
+        target_link_options(mark-shot-onnx-runtime-conflict PRIVATE
+            "LINKER:--version-script=${CMAKE_SOURCE_DIR}/tests/fixtures/onnx_runtime_conflict.map")
+        add_dependencies(mark-shot-ocr-rapid-plugin-test mark-shot-onnx-runtime-conflict)
+        add_test(NAME ocr-rapid-plugin-runtime-conflict
+            COMMAND ${CMAKE_COMMAND} -E env
+                "LD_LIBRARY_PATH=$<TARGET_FILE_DIR:mark-shot-onnx-runtime-conflict>"
+                "QT_QPA_PLATFORM=offscreen"
+                $<TARGET_FILE:mark-shot-ocr-rapid-plugin-test> -o -,txt
+        )
         add_test(NAME ocr-rapid-plugin-dependencies
             COMMAND ${CMAKE_COMMAND}
                 "-DREADELF=${CMAKE_READELF}"

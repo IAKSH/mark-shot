@@ -1,6 +1,7 @@
 #include "rapid_model_paths.h"
 #include "markshot/ocr_provider_plugin.h"
 #include "marketplace/plugin_installer.h"
+#include "providers/provider_runtime_dependencies.h"
 
 #include <QtTest/QtTest>
 
@@ -66,7 +67,7 @@ private slots:
         // 2. 【OCR】【插件加载】从安装结果加载，不预先链接插件或 ONNX Runtime
         m_loader.setFileName(installed.installedPath);
         m_loader.setLoadHints(QLibrary::ResolveAllSymbolsHint);
-        QObject *instance = m_loader.instance();
+        QObject *instance = markshot::providers::loadProviderPluginWithRuntimeFallback(&m_loader);
         QVERIFY2(instance, qPrintable(m_loader.errorString()));
         m_plugin = qobject_cast<markshot::plugin::OcrProviderPlugin *>(instance);
         QVERIFY2(m_plugin, "OCR provider interface is missing");

@@ -5,6 +5,7 @@
 #include "markshot/code_scan_provider_plugin.h"
 #include "markshot/ocr_provider_plugin.h"
 #include "providers/provider_plugin_paths.h"
+#include "providers/provider_runtime_dependencies.h"
 #include "markshot/translate_provider_plugin.h"
 
 #include <QCoreApplication>
@@ -138,7 +139,7 @@ void ProviderPluginRegistry::loadOnce()
             // 1. 加载候选动态库并检查是否实现任一 provider 接口
             auto *loader = new QPluginLoader(entry.absoluteFilePath(), QCoreApplication::instance());
             const ProviderPluginInfo baseInfo = basePluginInfo(entry, *loader);
-            QObject *instance = loader->instance();
+            QObject *instance = loadProviderPluginWithRuntimeFallback(loader);
             if (!instance) {
                 ProviderPluginInfo info = baseInfo;
                 info.error = loader->errorString();

@@ -50,6 +50,7 @@ add_dependencies(mark-shot-plugin-installer-test mark-shot-update-fixture-1 mark
 qt_add_executable(mark-shot-plugin-registry-update-test
     tests/plugin_registry_update_test.cpp
     src/providers/provider_plugin_registry.cpp
+    src/providers/provider_runtime_dependencies.cpp
     src/providers/provider_plugin_paths.cpp
     src/marketplace/plugin_installer.cpp
     src/marketplace/plugin_updates.cpp

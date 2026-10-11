@@ -1,0 +1,4 @@
+VERS_0.0 {
+    global: OrtGetApiBase;
+    local: *;
+};

@@ -5,6 +5,8 @@ set(MARK_SHOT_PROVIDER_SOURCES
     src/providers/provider_plugin_info.h
     src/providers/provider_plugin_paths.cpp
     src/providers/provider_plugin_paths.h
+    src/providers/provider_runtime_dependencies.cpp
+    src/providers/provider_runtime_dependencies.h
     src/providers/provider_process_task.cpp
     src/providers/provider_process_task.h
     src/providers/provider_task.cpp

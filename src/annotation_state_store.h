@@ -40,6 +40,7 @@ struct AnnotationState {
 
     // 各类样式枚举
     ShotWindow::ArrowStyle arrowStyle = ShotWindow::ArrowStyle::Fletched;
+    ShotWindow::ArrowLineStyle arrowLineStyle = ShotWindow::ArrowLineStyle::Solid;
     ShotWindow::HighlighterStyle highlighterStyle = ShotWindow::HighlighterStyle::StraightLine;
     ShotWindow::NumberStyle numberStyle = ShotWindow::NumberStyle::Arabic;
 

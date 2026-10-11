@@ -46,6 +46,7 @@ void ShotWindow::loadAnnotationStateFromDisk()
 
     // 6. 各风格枚举
     m_arrowStyle = state.arrowStyle;
+    m_arrowLineStyle = state.arrowLineStyle;
     m_highlighterStyle = state.highlighterStyle;
     m_numberStyle = state.numberStyle;
 
@@ -112,6 +113,7 @@ void ShotWindow::flushAnnotationStateNow()
     state.magnifierScale = m_magnifierScale;
     state.magnifierShape = m_magnifierShape;
     state.arrowStyle = m_arrowStyle;
+    state.arrowLineStyle = m_arrowLineStyle;
     state.highlighterStyle = m_highlighterStyle;
     state.numberStyle = m_numberStyle;
     state.textFontFamily = m_textFontFamily;

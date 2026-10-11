@@ -506,15 +506,7 @@ void ShotWindow::updateAnnotationPropertyPanel()
                 std::max(0, m_propertyMosaicStyleCombo->findData(static_cast<int>(panelMosaicStyle))));
         }
     }
-    if (m_propertyArrowStyleCombo) {
-        const bool supportsArrowStyle = !groupSelection && panelTool == Tool::Arrow;
-        m_propertyArrowStyleCombo->setVisible(supportsArrowStyle);
-        if (supportsArrowStyle) {
-            const ArrowStyle panelArrowStyle = annotation ? annotation->arrowStyle : m_arrowStyle;
-            const QSignalBlocker blocker(m_propertyArrowStyleCombo);
-            m_propertyArrowStyleCombo->setCurrentIndex(std::max(0, m_propertyArrowStyleCombo->findData(static_cast<int>(panelArrowStyle))));
-        }
-    }
+    updateArrowPropertyControls(annotation, !groupSelection && panelTool == Tool::Arrow);
     if (m_propertyHighlighterStyleCombo) {
         const bool supportsHighlighterStyle = !groupSelection && panelTool == Tool::Highlighter;
         m_propertyHighlighterStyleCombo->setVisible(supportsHighlighterStyle);

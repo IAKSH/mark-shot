@@ -42,6 +42,7 @@ void ShotWindow::initializePropertyStyleCombos(QHBoxLayout *propertyLayout)
     propertyLayout->addWidget(m_propertyMosaicStyleCombo);
     // 3. 箭头样式
     m_propertyArrowStyleCombo = new QComboBox(m_annotationPropertyPanel);
+    m_propertyArrowStyleCombo->setObjectName(QStringLiteral("annotationArrowStyle"));
     m_propertyArrowStyleCombo->setCursor(Qt::ArrowCursor);
     m_propertyArrowStyleCombo->setFocusPolicy(Qt::NoFocus);
     m_propertyArrowStyleCombo->addItem(MS_TR("Fletched"), static_cast<int>(ArrowStyle::Fletched));
@@ -57,6 +58,21 @@ void ShotWindow::initializePropertyStyleCombos(QHBoxLayout *propertyLayout)
         setSelectedAnnotationArrowStyle(static_cast<ArrowStyle>(m_propertyArrowStyleCombo->itemData(index).toInt()));
     });
     propertyLayout->addWidget(m_propertyArrowStyleCombo);
+    m_propertyArrowLineStyleCombo = new QComboBox(m_annotationPropertyPanel);
+    m_propertyArrowLineStyleCombo->setObjectName(QStringLiteral("annotationArrowLineStyle"));
+    m_propertyArrowLineStyleCombo->setCursor(Qt::ArrowCursor);
+    m_propertyArrowLineStyleCombo->setFocusPolicy(Qt::NoFocus);
+    m_propertyArrowLineStyleCombo->addItem(MS_TR("Solid"), static_cast<int>(ArrowLineStyle::Solid));
+    m_propertyArrowLineStyleCombo->addItem(MS_TR("Dashed"), static_cast<int>(ArrowLineStyle::Dashed));
+    m_propertyArrowLineStyleCombo->addItem(MS_TR("Dotted"), static_cast<int>(ArrowLineStyle::Dotted));
+    m_propertyArrowLineStyleCombo->setToolTip(MS_TR("Arrow line style"));
+    m_propertyArrowLineStyleCombo->setAccessibleName(MS_TR("Arrow line style"));
+    connect(m_propertyArrowLineStyleCombo, QOverload<int>::of(&QComboBox::activated), this, [this](int index) {
+        if (index >= 0) {
+            setSelectedArrowLineStyle(static_cast<ArrowLineStyle>(m_propertyArrowLineStyleCombo->itemData(index).toInt()));
+        }
+    });
+    propertyLayout->addWidget(m_propertyArrowLineStyleCombo);
     // 4. 荧光笔样式
     m_propertyHighlighterStyleCombo = new QComboBox(m_annotationPropertyPanel);
     m_propertyHighlighterStyleCombo->setCursor(Qt::ArrowCursor);

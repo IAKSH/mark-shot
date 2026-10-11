@@ -1,5 +1,6 @@
 #pragma once
 
+#include "annotation/arrow_style.h"
 #include "ui/theme.h"
 
 #include <QColor>
@@ -103,14 +104,6 @@ enum class StartupTool {
     CodeScanner,
     GifRecorder,
     VideoRecorder,
-};
-
-/// @brief 箭头绘制样式
-enum class ArrowStyle {
-    Fletched,
-    Kde,
-    BidirectionalFletched,
-    BidirectionalKde,
 };
 
 /// @brief 荧光笔的自由线条或直线样式
@@ -226,6 +219,7 @@ struct Annotation {
     bool filled = false;
     qreal cornerRadius = 0.0;
     ArrowStyle arrowStyle = ArrowStyle::Fletched;
+    ArrowLineStyle arrowLineStyle = ArrowLineStyle::Solid;
     HighlighterStyle highlighterStyle = HighlighterStyle::StraightLine;
     qreal rotationDegrees = 0.0;
     qreal magnifierScale = 2.75;

@@ -34,6 +34,7 @@ constexpr const char *kKeyMarkerFilled = "markerFilled";
 constexpr const char *kKeyMagnifierScale = "magnifierScale";
 constexpr const char *kKeyMagnifierShape = "magnifierShape";
 constexpr const char *kKeyArrowStyle = "arrowStyle";
+constexpr const char *kKeyArrowLineStyle = "arrowLineStyle";
 constexpr const char *kKeyHighlighterStyle = "highlighterStyle";
 constexpr const char *kKeyNumberStyle = "numberStyle";
 constexpr const char *kKeyTextFontFamily = "textFontFamily";
@@ -180,6 +181,10 @@ AnnotationState loadAnnotationState()
         state.arrowStyle,
         static_cast<int>(ShotWindow::ArrowStyle::Fletched),
         static_cast<int>(ShotWindow::ArrowStyle::BidirectionalKde));
+    state.arrowLineStyle = enumFromInt<ShotWindow::ArrowLineStyle>(
+        root.value(QString::fromLatin1(kKeyArrowLineStyle)), state.arrowLineStyle,
+        static_cast<int>(ShotWindow::ArrowLineStyle::Solid),
+        static_cast<int>(ShotWindow::ArrowLineStyle::Dotted));
     state.highlighterStyle = enumFromInt<ShotWindow::HighlighterStyle>(
         root.value(QString::fromLatin1(kKeyHighlighterStyle)),
         state.highlighterStyle,
@@ -239,6 +244,7 @@ bool saveAnnotationState(const AnnotationState &state)
     root.insert(QString::fromLatin1(kKeyMagnifierScale), state.magnifierScale);
     root.insert(QString::fromLatin1(kKeyMagnifierShape), static_cast<int>(state.magnifierShape));
     root.insert(QString::fromLatin1(kKeyArrowStyle), static_cast<int>(state.arrowStyle));
+    root.insert(QString::fromLatin1(kKeyArrowLineStyle), static_cast<int>(state.arrowLineStyle));
     root.insert(QString::fromLatin1(kKeyHighlighterStyle), static_cast<int>(state.highlighterStyle));
     root.insert(QString::fromLatin1(kKeyNumberStyle), static_cast<int>(state.numberStyle));
     root.insert(QString::fromLatin1(kKeyTextFontFamily), state.textFontFamily);

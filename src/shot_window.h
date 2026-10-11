@@ -144,6 +144,7 @@ private:
 
 public:
     using ArrowStyle = markshot::shot::types::ArrowStyle;
+    using ArrowLineStyle = markshot::shot::types::ArrowLineStyle;
     using HighlighterStyle = markshot::shot::types::HighlighterStyle;
     using MagnifierShape = markshot::shot::types::MagnifierShape;
     using RectangleStyle = markshot::shot::types::RectangleStyle;
@@ -286,10 +287,6 @@ private:
     void copySelection();
     void redoAnnotation();
     void drawAnnotation(QPainter &painter, const Annotation &annotation, bool widgetCoordinates) const;
-    void drawArrow(QPainter &painter,
-                   const QVector<QPointF> &points,
-                   qreal width,
-                   ArrowStyle style) const;
     void drawMosaic(QPainter &painter, const Annotation &annotation, bool widgetCoordinates) const;
     /// @brief 按滤镜效果处理冻结帧中的一块区域
     /// @param sourceRect 图像坐标中的区域
@@ -399,6 +396,15 @@ private:
     void setSelectedAnnotationFilled(bool filled);
     void setSelectedAnnotationCornerRadius(int radius);
     void setSelectedAnnotationArrowStyle(ArrowStyle style);
+    /// @brief 设置当前箭头或箭头工具的线型
+    /// @param style 实线、虚线或点线
+    /// @return 无返回值
+    void setSelectedArrowLineStyle(ArrowLineStyle style);
+    /// @brief 同步箭头属性控件的可见性及当前值
+    /// @param annotation 单个选中标注，未选中时为空
+    /// @param visible 是否显示箭头属性
+    /// @return 无返回值
+    void updateArrowPropertyControls(const Annotation *annotation, bool visible);
     void setSelectedRectangleStyle(RectangleStyle style);
     /// @brief 切换选中马赛克标注或马赛克工具默认的滤镜效果
     /// @param style 滤镜效果
@@ -633,6 +639,7 @@ private:
     // 形状标记默认填充；false 时新标记以描边（空心）绘制。
     bool m_markerFilled = true;
     ArrowStyle m_arrowStyle = ArrowStyle::Fletched;
+    ArrowLineStyle m_arrowLineStyle = ArrowLineStyle::Solid;
     HighlighterStyle m_highlighterStyle = HighlighterStyle::StraightLine;
     NumberStyle m_numberStyle = NumberStyle::Arabic;
     QString m_textFontFamily = markshot::theme::textFontFamily();
@@ -669,6 +676,7 @@ private:
     QSlider *m_propertyRadiusSlider = nullptr;
     QLabel *m_propertyArrowStyleLabel = nullptr;
     QComboBox *m_propertyArrowStyleCombo = nullptr;
+    QComboBox *m_propertyArrowLineStyleCombo = nullptr;
     QComboBox *m_propertyHighlighterStyleCombo = nullptr;
     QComboBox *m_propertyNumberStyleCombo = nullptr;
     QComboBox *m_propertyRectangleStyleCombo = nullptr;

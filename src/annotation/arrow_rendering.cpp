@@ -1,7 +1,17 @@
-#include "shot_window_module.h"
+#include "annotation/arrow_rendering.h"
+
+#include "line_skeleton_path.h"
+
+#include <QLineF>
+#include <QPainter>
+
+#include <algorithm>
 
 using namespace markshot::shot;
+using markshot::shot::types::ArrowLineStyle;
+using markshot::shot::types::ArrowStyle;
 
+namespace markshot::annotation {
 namespace {
 
 constexpr qreal kMinimumVectorLength = 0.001;
@@ -12,6 +22,24 @@ struct FletchedArrowMetrics {
     qreal headHalfWidth = 0.0;
     qreal bodyHalfWidth = 0.0;
 };
+
+/**
+ * 【标注】【箭身线型】创建线宽一致的实线、短划线或圆点画笔
+ * @param color 标注颜色
+ * @param width 线宽
+ * @param style 箭身线型
+ * @return 带圆角端点的画笔
+ */
+QPen shaftPen(const QColor &color, qreal width, ArrowLineStyle style)
+{
+    QPen pen(color, width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    if (style == ArrowLineStyle::Dashed) {
+        pen.setStyle(Qt::DashLine);
+    } else if (style == ArrowLineStyle::Dotted) {
+        pen.setDashPattern({0.01, 2.5});
+    }
+    return pen;
+}
 
 /**
  * 计算二维向量长度。
@@ -351,6 +379,7 @@ QPainterPath bidirectionalFletchedArrowPath(const QVector<QPointF> &centerLine,
  * @param points 箭头骨架点列表。
  * @param width 当前标注线宽。
  * @param bidirectional 是否为双向箭头。
+ * @param lineStyle 箭身线型
  * @param centerLine 箭头中心线采样点。
  * @return 无返回值。
  */
@@ -358,6 +387,7 @@ void drawKdeArrow(QPainter &painter,
                   const QVector<QPointF> &points,
                   qreal width,
                   bool bidirectional,
+                  ArrowLineStyle lineStyle,
                   const QVector<QPointF> &centerLine)
 {
     if (centerLine.size() < 2) {
@@ -385,11 +415,29 @@ void drawKdeArrow(QPainter &painter,
 
     painter.save();
     painter.setBrush(Qt::NoBrush);
-    painter.setPen(QPen(color, width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(shaftPen(color, width, lineStyle));
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.drawPath(shaft);
+    painter.setPen(shaftPen(color, width, ArrowLineStyle::Solid));
     painter.drawPath(head);
     painter.restore();
+}
+
+/**
+ * 【标注】【箭头头部】追加不受箭身线型影响的实心头部
+ * @param path 输出路径
+ * @param tip 尖端位置
+ * @param base 与箭身相接的基线中心
+ * @param normal 尖端方向的单位法线
+ * @param halfWidth 头部半宽
+ * @return 无返回值
+ */
+void appendFilledHead(QPainterPath *path, QPointF tip, QPointF base, QPointF normal, qreal halfWidth)
+{
+    path->moveTo(base + normal * halfWidth);
+    path->lineTo(tip);
+    path->lineTo(base - normal * halfWidth);
+    path->closeSubpath();
 }
 
 /**
@@ -397,12 +445,14 @@ void drawKdeArrow(QPainter &painter,
  * @param painter 当前绘制器。
  * @param width 当前标注线宽。
  * @param bidirectional 是否为双向箭头。
+ * @param lineStyle 箭身线型
  * @param centerLine 箭头中心线采样点。
  * @return 无返回值。
  */
 void drawFletchedArrow(QPainter &painter,
                        qreal width,
                        bool bidirectional,
+                       ArrowLineStyle lineStyle,
                        const QVector<QPointF> &centerLine)
 {
     const qreal totalLength = polylineLength(centerLine);
@@ -410,7 +460,7 @@ void drawFletchedArrow(QPainter &painter,
     const qreal startDistance = bidirectional ? metrics.headLength : 0.0;
     const qreal endDistance = totalLength - metrics.headLength;
     const QVector<QPointF> shaftCenterLine = centerLineSection(centerLine, startDistance, endDistance);
-    const QPainterPath arrow = bidirectional
+    QPainterPath arrow = bidirectional
         ? bidirectionalFletchedArrowPath(centerLine, shaftCenterLine, metrics)
         : singleFletchedArrowPath(centerLine, shaftCenterLine, metrics);
     const QColor color = painter.pen().color();
@@ -419,16 +469,33 @@ void drawFletchedArrow(QPainter &painter,
     painter.setPen(Qt::NoPen);
     painter.setBrush(color);
     painter.setRenderHint(QPainter::Antialiasing, true);
+    if (lineStyle != ArrowLineStyle::Solid && shaftCenterLine.size() >= 2) {
+        // 1. 【标注】【虚线箭头】仅给箭身应用线型，避免箭头尖端出现断裂
+        QPainterPath shaft(shaftCenterLine.first());
+        for (int i = 1; i < shaftCenterLine.size(); ++i) {
+            shaft.lineTo(shaftCenterLine.at(i));
+        }
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(shaftPen(color, width, lineStyle));
+        painter.drawPath(shaft);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(color);
+        arrow = QPainterPath();
+        appendFilledHead(&arrow, centerLine.last(), shaftCenterLine.last(),
+                         normalForDirection(tangentAtDistance(centerLine, totalLength)), metrics.headHalfWidth);
+        if (bidirectional) {
+            appendFilledHead(&arrow, centerLine.first(), shaftCenterLine.first(),
+                             normalForDirection(tangentAtDistance(centerLine, 0.0)), metrics.headHalfWidth);
+        }
+    }
     painter.drawPath(arrow);
     painter.restore();
 }
 
 } // namespace
 
-void ShotWindow::drawArrow(QPainter &painter,
-                           const QVector<QPointF> &points,
-                           qreal width,
-                           ArrowStyle style) const
+void drawArrow(QPainter &painter, const QVector<QPointF> &points, qreal width,
+               ArrowStyle style, ArrowLineStyle lineStyle)
 {
     const QVector<QPointF> centerLine = sampledLineSkeletonCenterLine(points);
     if (polylineLength(centerLine) < 1.0) {
@@ -438,9 +505,11 @@ void ShotWindow::drawArrow(QPainter &painter,
     const bool kdeStyle = style == ArrowStyle::Kde || style == ArrowStyle::BidirectionalKde;
     const bool bidirectional = style == ArrowStyle::BidirectionalFletched || style == ArrowStyle::BidirectionalKde;
     if (kdeStyle) {
-        drawKdeArrow(painter, points, width, bidirectional, centerLine);
+        drawKdeArrow(painter, points, width, bidirectional, lineStyle, centerLine);
         return;
     }
 
-    drawFletchedArrow(painter, width, bidirectional, centerLine);
+    drawFletchedArrow(painter, width, bidirectional, lineStyle, centerLine);
 }
+
+} // namespace markshot::annotation

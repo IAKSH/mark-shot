@@ -484,6 +484,7 @@ void ShotWindow::mousePressEvent(QMouseEvent *event)
         annotation.filled = m_markerFilled;
     }
     annotation.arrowStyle = m_arrowStyle;
+    annotation.arrowLineStyle = m_arrowLineStyle;
     annotation.rectangleStyle = m_rectangleStyle;
     annotation.mosaicStyle = m_mosaicStyle;
     annotation.markerShape = m_markerShape;

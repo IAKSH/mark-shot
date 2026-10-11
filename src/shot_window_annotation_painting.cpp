@@ -1,4 +1,5 @@
 #include "shot_window_module.h"
+#include "annotation/arrow_rendering.h"
 
 #include "shot_window_marker_shapes.h"
 
@@ -107,10 +108,8 @@ void ShotWindow::drawAnnotation(QPainter &painter, const Annotation &annotation,
             for (const QPointF &point : annotation.points) {
                 mappedPoints.append(mapPoint(point));
             }
-            drawArrow(painter,
-                      mappedPoints,
-                      penWidth,
-                      annotation.arrowStyle);
+            markshot::annotation::drawArrow(painter, mappedPoints, penWidth,
+                                            annotation.arrowStyle, annotation.arrowLineStyle);
         }
         break;
     case Tool::Text: {

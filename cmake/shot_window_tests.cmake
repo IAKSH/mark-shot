@@ -1,3 +1,12 @@
+qt_add_executable(mark-shot-arrow-rendering-test
+    tests/arrow_rendering_test.cpp
+    src/annotation/arrow_rendering.cpp
+    src/line_skeleton_path.cpp
+)
+target_include_directories(mark-shot-arrow-rendering-test PRIVATE src)
+target_link_libraries(mark-shot-arrow-rendering-test PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
+add_test(NAME arrow-rendering COMMAND mark-shot-arrow-rendering-test)
+
 qt_add_executable(mark-shot-ocr-result-window-geometry-test
     tests/ocr_result_window_geometry_test.cpp
     src/ocr_result_window/ocr_result_window_geometry.cpp

@@ -194,7 +194,7 @@ the annotation toolbar. Tools are switched with the number keys or the toolbar:
 | `H` | Highlighter | semi-transparent marker; freehand or straight line style |
 | `R` | Rectangle | box with `Stroke` / `Highlight` / `Invert` / `Spotlight` styles, rounded corners; Spotlight dims everything outside the box |
 | `E` | Ellipse | ellipse / circle |
-| `A` | Arrow | classic arrows (fletched, KDE, bidirectional) |
+| `A` | Arrow | fletched, KDE, or bidirectional heads with solid, dashed, or dotted shafts |
 | `T` | Text | rich text; wheel or sliders resize; diagonal handles scale both, side handles adjust wrap; exact pt size, font family, bold / italic in the font panel |
 | `N` | Number | sequential numbered markers (Arabic, alpha, roman, Chinese, …) |
 | `M` | Mosaic | switch between `Pixelate` / `Blur` / `Grayscale` / `Invert` / `Brighten` in the property panel; the wheel sets strength |
@@ -202,6 +202,8 @@ the annotation toolbar. Tools are switched with the number keys or the toolbar:
 
 Drawing tips:
 
+- Select an arrow and drag its middle skeleton point to bend it. `Arrow line style`
+  applies to straight and curved shafts without breaking the arrowheads.
 - Hold `Ctrl` while drawing a rectangle / ellipse to constrain to a square /
   circle.
 - Scroll the wheel while a tool is active to adjust stroke width, text size,

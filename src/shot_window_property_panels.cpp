@@ -93,26 +93,6 @@ void ShotWindow::setSelectedAnnotationCornerRadius(int radius)
     persistAnnotationState();
 }
 
-void ShotWindow::setSelectedAnnotationArrowStyle(ArrowStyle style)
-{
-    if (m_selectedAnnotationId.has_value()) {
-        Annotation *annotation = annotationById(*m_selectedAnnotationId);
-        if (!annotation || annotation->tool != Tool::Arrow || annotation->arrowStyle == style) {
-            return;
-        }
-        pushHistorySnapshot();
-        annotation->arrowStyle = style;
-    } else {
-        if (m_tool != Tool::Arrow || m_arrowStyle == style) {
-            return;
-        }
-        m_arrowStyle = style;
-    }
-    updateAnnotationPropertyPanel();
-    update();
-    persistAnnotationState();
-}
-
 void ShotWindow::setSelectedRectangleStyle(RectangleStyle style)
 {
     // 切换矩形风格(描边/高亮/反色)。多选与单选共用同一逻辑,仅作用于

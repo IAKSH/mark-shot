@@ -3,6 +3,7 @@
 #include "scroll/stitcher_internal.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -17,6 +18,12 @@ namespace {
 constexpr int kOffsetPredictWindow = 128;
 // 预测窗口未命中后全范围粗搜的步长
 constexpr int kOffsetCoarseStep = 3;
+// 粗搜后参与一像素精化的候选谷数量
+constexpr int kOffsetCoarseBasins = 3;
+// 提前结束阈值相对未滚动误差的比例
+constexpr float kEarlyExitZeroRatio = 0.03f;
+// 最优候选误差超过次优候选谷该比例时视为难以区分,需要逐像素补查
+constexpr float kAmbiguousRivalRatio = 0.25f;
 
 }  // namespace
 
@@ -34,23 +41,32 @@ std::pair<int, float> Stitcher::findOffsetColSample(const ColSamples &frameCols)
     const int fixedTop = m_fixedRegions.matchTopIgnore();
     const int fixedBottom = m_fixedRegions.matchBottomIgnore();
 
+    const BandWeights &weights = m_motionMask.weights();
+    // 【长截图】【提前结束】稀疏文本页的错位误差本身很小,提前结束阈值按未滚动时的误差收紧,
+    // 只有明显优于"原地不动"的候选才能跳过后续搜索
+    const float zeroDiff = frame_profile::frameColDiff(m_lastCols, frameCols, 0,
+                                                       m_config.minOverlap, fixedTop, fixedBottom, weights);
+    const float approxDiff = std::min(m_config.approxDiff, zeroDiff * kEarlyExitZeroRatio);
+
     int bestOffset = 0;
     float bestDiff = kNoMatchConfidence;
     int approachCount = 0;
+    float lastDiff = kNoMatchConfidence;
     // 返回 true 表示已经足够好,可以提前结束搜索
     auto probe = [&](int offset) {
         const float diff = frame_profile::frameColDiff(m_lastCols, frameCols, offset,
-                                                       m_config.minOverlap, fixedTop, fixedBottom);
+                                                       m_config.minOverlap, fixedTop, fixedBottom, weights);
+        lastDiff = diff;
         if (diff < bestDiff) {
             bestOffset = offset;
             bestDiff = diff;
         }
-        if (bestDiff < m_config.approxDiff) {
+        if (bestDiff < approxDiff) {
             ++approachCount;
             if (approachCount > 10) {
                 return true;
             }
-            if (diff < m_config.approxDiff / 4.0f) {
+            if (diff < approxDiff / 4.0f) {
                 return true;
             }
         }
@@ -68,11 +84,29 @@ std::pair<int, float> Stitcher::findOffsetColSample(const ColSamples &frameCols)
             return {bestOffset, bestDiff};
         }
     }
-    if (bestDiff < m_config.approxDiff) {
+    if (bestDiff < approxDiff) {
         return {bestOffset, bestDiff};
     }
 
-    // 2. 预测窗口未命中时全范围粗搜,跳过已精搜的窗口
+    // 2. 预测窗口未命中时全范围粗搜,跳过已精搜的窗口;同时保留几个彼此分离的候选谷,
+    //    细文字的真实位移可能只有一像素宽,粗搜步长会让它的邻点输给另一处宽谷
+    std::array<std::pair<int, float>, kOffsetCoarseBasins> basins;
+    basins.fill({0, kNoMatchConfidence});
+    auto rememberBasin = [&](int offset, float diff) {
+        for (auto &basin : basins) {
+            if (basin.second < kNoMatchConfidence && std::abs(basin.first - offset) <= kOffsetCoarseStep * 2) {
+                if (diff < basin.second) {
+                    basin = {offset, diff};
+                }
+                return;
+            }
+        }
+        auto worst = std::max_element(basins.begin(), basins.end(),
+                                      [](const auto &a, const auto &b) { return a.second < b.second; });
+        if (diff < worst->second) {
+            *worst = {offset, diff};
+        }
+    };
     for (int offset = -maxOffset; offset <= maxOffset; offset += kOffsetCoarseStep) {
         if (std::abs(offset - predicted) <= kOffsetPredictWindow) {
             continue;
@@ -80,18 +114,54 @@ std::pair<int, float> Stitcher::findOffsetColSample(const ColSamples &frameCols)
         if (probe(offset)) {
             return {bestOffset, bestDiff};
         }
+        rememberBasin(offset, lastDiff);
     }
 
-    // 3. 在粗搜最优点附近做一像素精化,补回步长跳过的位置
-    const int refineStart = std::max(-maxOffset, bestOffset - kOffsetCoarseStep);
-    const int refineEnd = std::min(maxOffset, bestOffset + kOffsetCoarseStep);
-    for (int offset = refineStart; offset <= refineEnd; ++offset) {
-        if (probe(offset)) {
-            break;
+    // 3. 在各候选谷附近做一像素精化,补回步长跳过的位置
+    for (const auto &basin : basins) {
+        if (basin.second >= kNoMatchConfidence) {
+            continue;
+        }
+        const int refineStart = std::max(-maxOffset, basin.first - kOffsetCoarseStep);
+        const int refineEnd = std::min(maxOffset, basin.first + kOffsetCoarseStep);
+        for (int offset = refineStart; offset <= refineEnd; ++offset) {
+            if (probe(offset)) {
+                return {bestOffset, bestDiff};
+            }
+        }
+    }
+
+    // 4. 【长截图】【逐像素补查】最优候选既未明显优于原地不动、也未与其它候选谷拉开差距时,
+    //    才补查粗搜跳过的偏移;常规帧和带采集噪声的清晰帧都不会进入这一步
+    float rivalDiff = kNoMatchConfidence;
+    for (const auto &basin : basins) {
+        if (std::abs(basin.first - bestOffset) > kOffsetCoarseStep * 2) {
+            rivalDiff = std::min(rivalDiff, basin.second);
+        }
+    }
+    if (bestDiff >= approxDiff && bestDiff > rivalDiff * kAmbiguousRivalRatio) {
+        for (int offset = -maxOffset; offset <= maxOffset; ++offset) {
+            if (std::abs(offset - predicted) <= kOffsetPredictWindow || (offset + maxOffset) % kOffsetCoarseStep == 0) {
+                continue;
+            }
+            if (probe(offset)) {
+                break;
+            }
         }
     }
 
     return {bestOffset, bestDiff};
+}
+
+/// @brief 判断长图中的某个放置位置是否能由锚点帧经一次滚动到达
+/// @param pos 帧顶在长图中的候选位置
+/// @param frameH 帧高
+/// @return 与锚点帧仍有最小重叠时返回 true
+bool Stitcher::reachableFromAnchor(int pos, int frameH) const
+{
+    // 【长截图】【边缘恢复】相邻两帧必须保留最小重叠,越过该距离的生长边候选
+    // 只能来自重复的页面结构,例如在长图底部把页首误配到顶部前插
+    return std::abs(pos - m_anchorPos) <= frameH - m_config.minOverlap;
 }
 
 std::pair<int, float> Stitcher::findKnownPosition(const ColSamples &frameCols, int predictedPos) const
@@ -179,7 +249,7 @@ std::pair<int, float> Stitcher::findEdgePosition(const ColSamples &frameCols, in
         // Edge recovery only considers placements that reveal new content; pure
         // inside-known movement is handled by findKnownPosition().
         StitchEdge edge = StitchEdge::None;
-        if (overhangAmount(pos, frameH, fullH, &edge) <= 0) {
+        if (overhangAmount(pos, frameH, fullH, &edge) <= 0 || !reachableFromAnchor(pos, frameH)) {
             return;
         }
         // 长图靠近生长边一侧的旧固定带即将被裁掉,评分时排除,防止固定带
@@ -249,8 +319,11 @@ Stitcher::EdgeLineMatch Stitcher::findLineRunPosition(const QImage &frame, int p
 
     const int fullH = m_long.height();
     const int frameH = frame.height();
+    // 逐像素行比较只覆盖运动区域,固定侧栏的像素不会打断正文的连续匹配
     const int side = sideIgnoreWidth(frame.width());
-    const int roiW = frame.width() - side * 2;
+    const auto [spanStart, spanWidth] = m_motionMask.movingSpan(frame.width());
+    const int roiStart = std::max(side, spanStart);
+    const int roiW = std::min(frame.width() - side, spanStart + spanWidth) - roiStart;
     if (roiW <= 0) {
         return best;
     }
@@ -260,7 +333,7 @@ Stitcher::EdgeLineMatch Stitcher::findLineRunPosition(const QImage &frame, int p
         return reinterpret_cast<const QRgb *>(frame.constScanLine(y));
     };
     auto rowDiff = [&](int fullY, int frameY) {
-        return frame_profile::rowMeanAbsDiff(m_long.scanLine(fullY), frameLine(frameY), side, roiW);
+        return frame_profile::rowMeanAbsDiff(m_long.scanLine(fullY), frameLine(frameY), roiStart, roiW);
     };
     // 候选优先级:更多匹配行,其次更低平均差,最后与预测位置更近
     auto lineMatchBetter = [&](const EdgeLineMatch &candidate, const EdgeLineMatch &current) {
@@ -328,7 +401,8 @@ Stitcher::EdgeLineMatch Stitcher::findLineRunPosition(const QImage &frame, int p
             StitchEdge edge = StitchEdge::None;
             const int pos = edgeY - currentY;
             const int appendRows = overhangAmount(pos, frameH, fullH - trim, &edge);
-            if (edge != StitchEdge::End || appendRows - trim < m_config.minAppend) {
+            if (edge != StitchEdge::End || appendRows - trim < m_config.minAppend
+                || !reachableFromAnchor(pos, frameH)) {
                 continue;
             }
 
@@ -373,7 +447,7 @@ Stitcher::EdgeLineMatch Stitcher::findLineRunPosition(const QImage &frame, int p
             }
             StitchEdge edge = StitchEdge::None;
             overhangAmount(pos, frameH, fullH, &edge);
-            if (edge != StitchEdge::Start) {
+            if (edge != StitchEdge::Start || !reachableFromAnchor(pos, frameH)) {
                 continue;
             }
 

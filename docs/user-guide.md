@@ -307,6 +307,10 @@ window's global position. Its title bar remains draggable in that mode.
    long image.
 3. GNOME Wayland requires the Mark Shot Scroll Helper extension (§ 2.1).
 
+When the selection contains a fixed sidebar such as a page outline or a PDF
+thumbnail pane, stitching compares only the scrolling content. Highlight
+changes in the sidebar while scrolling do not interrupt the capture.
+
 Scrolling capture is production-ready on niri and similar wlroots/Wayland
 compositors; on KDE, X11 and other stacks it is a test feature. If it fails,
 use normal screenshots or a custom extension command.

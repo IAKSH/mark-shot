@@ -41,6 +41,15 @@ StitchResult Stitcher::pushFrame(const QImage &rawFrame)
         return StitchResult{StitchStatus::NoMatch, 0};
     }
 
+    // 1. 【长截图】【静止帧】签名与上一帧完全一致时没有位移证据,直接报告无进展,
+    //    空白页面不会因找不到纹理而误报匹配失败
+    if (frameCols == m_lastCols) {
+        m_pendingEdge = StitchEdge::None;
+        return StitchResult{StitchStatus::NoProgress, 0, StitchEdge::None, m_anchorPos, frame.height()};
+    }
+
+    // 2. 【长截图】【静止区域】先在同一屏幕位置识别固定侧栏,后续全部匹配只比较运动采样带
+    m_motionMask.observe(m_lastCols, frameCols);
     const std::pair<int, float> match = findOffsetColSample(frameCols);
     const int offset = match.first;
     const float confidence = match.second;
@@ -140,7 +149,22 @@ StitchResult Stitcher::pushFrame(const QImage &rawFrame)
         return true;
     };
 
-    if (confidence > m_config.acceptDiff) {
+    // 3. 【长截图】【回看复核】相邻匹配把帧放进长图内部时不会再经过生长边复核,
+    //    短重叠误配会让锚点漂移并吞掉之后的新内容,因此先用长图同位置复核一次
+    bool adjacentDisagrees = false;
+    if (confidence <= m_config.acceptDiff && H >= fh && overhang(predictedPos, 0, nullptr) <= 0) {
+        knownDiff = knownOverlapDiff(frameCols, predictedPos);
+        adjacentDisagrees = knownDiff > m_config.acceptDiff;
+        if (adjacentDisagrees) {
+            logStitchDebug("reject-inside-known alg=%s axis=%s off=%d conf=%.3f accept=%.3f "
+                           "anchor=%d pred=%d known_diff=%.3f H=%d fh=%d",
+                           algorithmDebugName(), axisDebugName(m_axis),
+                           offset, confidence, m_config.acceptDiff, m_anchorPos, predictedPos,
+                           knownDiff, H, fh);
+        }
+    }
+
+    if (confidence > m_config.acceptDiff || adjacentDisagrees) {
         if (anchorNearEdge && tryEdgeRecovery()) {
             logStitchDebug("recover-edge-after-reject alg=%s axis=%s off=%d conf=%.3f accept=%.3f "
                            "anchor=%d pred=%d edge_pos=%d edge_diff=%.3f H=%d fh=%d",

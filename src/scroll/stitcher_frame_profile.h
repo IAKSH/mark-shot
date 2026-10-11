@@ -4,21 +4,37 @@
 #include <QVector>
 
 #include <array>
+#include <utility>
 
 namespace markshot::scroll {
 
-// 每行三段亮度采样,是所有重叠搜索共用的帧签名。比较成本低,
+// 横向采样带数量。采样带足够窄,固定侧栏只会占据其中几段,
+// 可以按带剔除而不拖累正文的匹配误差
+inline constexpr int kColBandCount = 8;
+
+// 每行按采样带的亮度均值,是所有重叠搜索共用的帧签名。比较成本低,
 // 且对页面细节文字有足够的区分度。
-using ColSamples = QVector<std::array<float, 3>>;
+using ColSamples = QVector<std::array<float, kColBandCount>>;
+
+// 各采样带参与比较的权重,0 表示该带不参与比较
+using BandWeights = std::array<float, kColBandCount>;
 
 namespace frame_profile {
 
 // 单个采样带内最多抽取的采样列数
-inline constexpr int kColMaxBandSamples = 17;
+inline constexpr int kColMaxBandSamples = 9;
 // 像素级行比较判定"同一行内容"的最大平均色差
 inline constexpr float kLineRowMaxDiff = 2.0f;
+// 全部采样带等权参与比较
+inline constexpr BandWeights kAllBands = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 
-/// @brief 计算一帧图像的行亮度签名(每行三个采样带的平均亮度)。
+/// @brief 计算某个采样带在帧宽上的像素区间
+/// @param width 帧宽
+/// @param band 采样带序号
+/// @return 采样带的起止列号(含两端)
+std::pair<int, int> bandColumns(int width, int band);
+
+/// @brief 计算一帧图像的行亮度签名(每行各采样带的平均亮度)。
 /// @param frame 输入帧,要求为 ARGB32_Premultiplied 或 RGB32 格式,其余格式内部转换。
 /// @return 长度等于帧高的行签名数组;帧无效时返回空数组。
 ColSamples computeColSamples(const QImage &frame);
@@ -67,13 +83,15 @@ float rowMeanAbsDiff(const QRgb *a, const QRgb *b, int startX, int width);
 /// @param minOverlap 最小可信重叠行数。
 /// @param fixedTop 帧顶部固定带高度,该区间行不参与比较。
 /// @param fixedBottom 帧底部固定带高度。
+/// @param weights 各采样带权重,固定侧栏所在的带权重为 0。
 /// @return 平均差;重叠不足或有效行过少时返回极大值。
 float frameColDiff(const ColSamples &cols1,
                    const ColSamples &cols2,
                    int offset,
                    int minOverlap,
                    int fixedTop,
-                   int fixedBottom);
+                   int fixedBottom,
+                   const BandWeights &weights = kAllBands);
 
 /// @brief 计算帧签名放置在长图绝对位置上的重叠平均差。
 /// @param fullCols 长图的行签名。
@@ -85,6 +103,7 @@ float frameColDiff(const ColSamples &cols1,
 /// @param overlapLen 可选输出,几何重叠长度。
 /// @param fullTopExclude 长图顶部排除的行数,即将被前插裁掉的旧固定带。
 /// @param fullBottomExclude 长图底部排除的行数,即将被追加裁掉的旧固定带。
+/// @param weights 各采样带权重,固定侧栏所在的带权重为 0。
 /// @return 平均差;重叠不足或有效行过少时返回极大值。
 float overlapColDiff(const ColSamples &fullCols,
                      const ColSamples &frameCols,
@@ -94,7 +113,8 @@ float overlapColDiff(const ColSamples &fullCols,
                      int fixedBottom,
                      int *overlapLen = nullptr,
                      int fullTopExclude = 0,
-                     int fullBottomExclude = 0);
+                     int fullBottomExclude = 0,
+                     const BandWeights &weights = kAllBands);
 
 }  // namespace frame_profile
 }  // namespace markshot::scroll

@@ -3,6 +3,7 @@
 #include "scroll/stitcher_fixed_regions.h"
 #include "scroll/stitcher_frame_profile.h"
 #include "scroll/stitcher_long_image.h"
+#include "scroll/stitcher_motion_mask.h"
 
 #include <QImage>
 
@@ -111,6 +112,9 @@ private:
     // trimmed by the pending append/prepend) from the comparison.
     float knownOverlapDiff(const ColSamples &frameCols, int framePos, int *overlapLen = nullptr,
                            int fullTopExclude = 0, int fullBottomExclude = 0) const;
+    // Whether a placement keeps the minimum overlap with the anchor frame, i.e.
+    // could be reached by one scroll step. Guards growth-edge recovery.
+    bool reachableFromAnchor(int pos, int frameH) const;
     // Recovers from a bad adjacent-frame match by searching already-stitched content.
     std::pair<int, float> findKnownPosition(const ColSamples &frameCols, int predictedPos) const;
     // Searches placements that reveal new content past either edge of the full image.
@@ -128,6 +132,8 @@ private:
     QImage m_lastFrame;
     ColSamples m_lastCols;
     FixedRegionDetector m_fixedRegions;
+    // 横向固定侧栏掩码,位移匹配与长图复核只比较发生运动的采样带
+    MotionBandMask m_motionMask;
     int m_lastOffset = 0;
     int m_bestBottomTrim = 0;
     int m_bestTopTrim = 0;

@@ -16,6 +16,11 @@ constexpr float kColBottomIgnoreRatio = 0.08f;
 constexpr int kColMinIgnorePx = 16;
 // 行像素比较最多抽取的采样列数
 constexpr int kLineMaxSampleCols = 256;
+// 采样带覆盖范围的起止宽度占比
+constexpr float kColStartRatio = 0.04f;
+constexpr float kColEndRatio = 0.96f;
+// 相邻采样带之间留空的比例(相对单带宽度)
+constexpr float kColBandGapRatio = 0.05f;
 
 /// @brief 按高度与占比计算边缘忽略行数。
 /// @param height 帧高。
@@ -54,6 +59,14 @@ int requiredComparedRows(int minOverlap, bool cropped)
     return cropped ? std::max(24, minOverlap / 2) : minOverlap;
 }
 
+std::pair<int, int> bandColumns(int width, int band)
+{
+    // 采样带均分 4%~96% 的宽度,带间留出约 0.6% 的间隙,避开窗口边框与滚动条
+    const float span = (kColEndRatio - kColStartRatio) / kColBandCount;
+    const float start = kColStartRatio + span * band;
+    return stitcher_internal::bandRange(width, start, start + span * (1.0f - kColBandGapRatio));
+}
+
 ColSamples computeColSamples(const QImage &frame)
 {
     const int w = frame.width();
@@ -73,17 +86,10 @@ ColSamples computeColSamples(const QImage &frame)
         source = &converted;
     }
 
-    // 2. 三个横向采样带覆盖左/中/右区域,保留页面结构信息的同时控制成本
-    const std::array<std::pair<int, int>, 3> bands = {
-        stitcher_internal::bandRange(w, 0.08f, 0.32f),
-        stitcher_internal::bandRange(w, 0.34f, 0.66f),
-        stitcher_internal::bandRange(w, 0.68f, 0.92f),
-    };
-
+    // 2. 【长截图】【行签名】多个窄采样带覆盖整个宽度,固定侧栏只污染其所在的带
     ColSamples result(h);
-    for (int g = 0; g < 3; ++g) {
-        const int start = bands[g].first;
-        const int end = bands[g].second;
+    for (int g = 0; g < kColBandCount; ++g) {
+        const auto [start, end] = bandColumns(w, g);
         const int sampleCount = std::max(1, std::min(kColMaxBandSamples, end - start + 1));
         const float step = sampleCount > 1
             ? static_cast<float>(end - start) / static_cast<float>(sampleCount - 1)
@@ -138,12 +144,88 @@ static bool usableRow(int y, int height, int fixedTop, int fixedBottom, bool sof
     return !softCrop || isContentRow(y, height);
 }
 
+// 剔除误差最大的一个采样带所需的最少参与带数
+constexpr int kTrimWorstBandMin = 4;
+// 判定一行具有纹理所需的相邻行亮度变化
+constexpr float kTextureRowStep = 1.0f;
+// 重叠区至少包含的纹理行数
+constexpr int kMinTexturedRows = 8;
+
+/// @brief 判断帧内某行在参与比较的采样带上是否与上一行存在亮度变化
+/// @param cols 帧的行签名
+/// @param y 行号
+/// @param weights 各采样带权重
+/// @return 存在纹理边缘时返回 true
+static bool texturedRow(const ColSamples &cols, int y, const BandWeights &weights)
+{
+    if (y <= 0) {
+        return false;
+    }
+    for (int g = 0; g < kColBandCount; ++g) {
+        if (weights[g] > 0.0f && std::abs(cols[y][g] - cols[y - 1][g]) > kTextureRowStep) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// @brief 逐带累加两行签名的绝对差,无返回值
+/// @param a 第一行签名
+/// @param b 第二行签名
+/// @param bandSums 各采样带的累计绝对差
+static void accumulateRowDiff(const std::array<float, kColBandCount> &a,
+                              const std::array<float, kColBandCount> &b,
+                              std::array<float, kColBandCount> &bandSums)
+{
+    for (int g = 0; g < kColBandCount; ++g) {
+        bandSums[g] += std::abs(a[g] - b[g]);
+    }
+}
+
+/// @brief 汇总各采样带误差,参与带足够多时剔除误差最大的一带
+/// @param bandSums 各采样带的累计绝对差
+/// @param rows 参与比较的行数
+/// @param weights 各采样带权重
+/// @return 每行每带的平均差;没有参与带时返回极大值
+static float trimmedBandMean(const std::array<float, kColBandCount> &bandSums, int rows,
+                             const BandWeights &weights)
+{
+    float sum = 0.0f;
+    float total = 0.0f;
+    float worst = 0.0f;
+    float worstWeight = 0.0f;
+    int active = 0;
+    for (int g = 0; g < kColBandCount; ++g) {
+        if (weights[g] <= 0.0f) {
+            continue;
+        }
+        const float weighted = weights[g] * bandSums[g];
+        sum += weighted;
+        total += weights[g];
+        ++active;
+        if (weighted > worst) {
+            worst = weighted;
+            worstWeight = weights[g];
+        }
+    }
+    // 【长截图】【稳健误差】侧栏选中高亮、跨越侧栏边界的带只影响单个采样带,剔除后不拖累正文
+    if (active >= kTrimWorstBandMin) {
+        sum -= worst;
+        total -= worstWeight;
+    }
+    if (rows <= 0 || total <= 0.0f) {
+        return kNoMatchConfidence;
+    }
+    return sum / (static_cast<float>(rows) * total);
+}
+
 float frameColDiff(const ColSamples &cols1,
                    const ColSamples &cols2,
                    int offset,
                    int minOverlap,
                    int fixedTop,
-                   int fixedBottom)
+                   int fixedBottom,
+                   const BandWeights &weights)
 {
     const int h1 = static_cast<int>(cols1.size());
     const int h2 = static_cast<int>(cols2.size());
@@ -163,9 +245,9 @@ float frameColDiff(const ColSamples &cols1,
     const bool softCrop = shouldCropContentRows(overlapLen, std::min(h1, h2), minOverlap);
     const int start1 = offset >= 0 ? offset : 0;
     const int start2 = offset >= 0 ? 0 : -offset;
-    float sum = 0.0f;
-    int count = 0;
+    std::array<float, kColBandCount> bandSums{};
     int rows = 0;
+    int texturedRows = 0;
     for (int i = 0; i < overlapLen; ++i) {
         const int y1 = start1 + i;
         const int y2 = start2 + i;
@@ -174,17 +256,21 @@ float frameColDiff(const ColSamples &cols1,
             continue;
         }
         ++rows;
-        for (int g = 0; g < 3; ++g) {
-            sum += std::abs(cols1[y1][g] - cols2[y2][g]);
-            ++count;
+        accumulateRowDiff(cols1[y1], cols2[y2], bandSums);
+        if (texturedRows < kMinTexturedRows && texturedRow(cols2, y2, weights)) {
+            ++texturedRows;
         }
     }
 
-    // 3. 有效行不足以支撑判定时按无匹配处理
-    if (count == 0 || rows < requiredComparedRows(minOverlap, softCrop || fixedTop + fixedBottom > 0)) {
+    // 3. 【长截图】【短重叠】仅按比例裁边时放宽行数;固定带削去后的残余重叠仍须满足最小重叠
+    if (rows < requiredComparedRows(minOverlap, softCrop)) {
         return kNoMatchConfidence;
     }
-    return sum / static_cast<float>(count);
+    // 4. 【长截图】【空白重叠】整段空白的重叠无法区分位移,不能凭页边留白定位
+    if (texturedRows < kMinTexturedRows) {
+        return kNoMatchConfidence;
+    }
+    return trimmedBandMean(bandSums, rows, weights);
 }
 
 float overlapColDiff(const ColSamples &fullCols,
@@ -195,7 +281,8 @@ float overlapColDiff(const ColSamples &fullCols,
                      int fixedBottom,
                      int *overlapLen,
                      int fullTopExclude,
-                     int fullBottomExclude)
+                     int fullBottomExclude,
+                     const BandWeights &weights)
 {
     const int fullH = static_cast<int>(fullCols.size());
     const int frameH = static_cast<int>(frameCols.size());
@@ -215,28 +302,26 @@ float overlapColDiff(const ColSamples &fullCols,
     // 1. 只在帧与长图的重叠区内比较;长图内容无固定带,窗口只作用于帧行
     const int frameStart = fullStart - framePos;
     const bool softCrop = shouldCropContentRows(len, frameH, minOverlap);
-    float sum = 0.0f;
-    int count = 0;
+    std::array<float, kColBandCount> bandSums{};
     int rows = 0;
+    int texturedRows = 0;
     for (int row = 0; row < len; ++row) {
         const int frameY = frameStart + row;
         if (!usableRow(frameY, frameH, fixedTop, fixedBottom, softCrop)) {
             continue;
         }
-        const std::array<float, 3> &fullPx = fullCols[fullStart + row];
-        const std::array<float, 3> &framePx = frameCols[frameY];
         ++rows;
-        for (int g = 0; g < 3; ++g) {
-            sum += std::abs(fullPx[g] - framePx[g]);
-            ++count;
+        accumulateRowDiff(fullCols[fullStart + row], frameCols[frameY], bandSums);
+        if (texturedRows < kMinTexturedRows && texturedRow(frameCols, frameY, weights)) {
+            ++texturedRows;
         }
     }
 
-    // 2. 有效行不足时拒绝,防止在稀疏比较上得出高置信结论
-    if (count == 0 || rows < requiredComparedRows(minOverlap, softCrop || fixedTop + fixedBottom > 0)) {
+    // 2. 有效行不足或整段空白时拒绝,防止在稀疏比较上得出高置信结论
+    if (rows < requiredComparedRows(minOverlap, softCrop) || texturedRows < kMinTexturedRows) {
         return kNoMatchConfidence;
     }
-    return sum / static_cast<float>(count);
+    return trimmedBandMean(bandSums, rows, weights);
 }
 
 }  // namespace markshot::scroll::frame_profile

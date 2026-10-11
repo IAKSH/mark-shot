@@ -247,6 +247,8 @@ qt_add_executable(mark-shot
     src/scroll/stitcher_frame_profile.h
     src/scroll/stitcher_fixed_regions.cpp
     src/scroll/stitcher_fixed_regions.h
+    src/scroll/stitcher_motion_mask.cpp
+    src/scroll/stitcher_motion_mask.h
     src/scroll/stitcher_long_image.cpp
     src/scroll/stitcher_long_image.h
     src/scroll/scroll_session_window.cpp

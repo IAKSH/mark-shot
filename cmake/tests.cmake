@@ -214,6 +214,8 @@ qt_add_executable(mark-shot-stitcher-test
     src/scroll/stitcher_fixed_regions.h
     src/scroll/stitcher_long_image.cpp
     src/scroll/stitcher_long_image.h
+    src/scroll/stitcher_motion_mask.cpp
+    src/scroll/stitcher_motion_mask.h
 )
 target_include_directories(mark-shot-stitcher-test PRIVATE src)
 target_link_libraries(mark-shot-stitcher-test
@@ -223,6 +225,15 @@ target_link_libraries(mark-shot-stitcher-test
         Qt6::Test
 )
 add_test(NAME stitcher COMMAND mark-shot-stitcher-test)
+
+qt_add_executable(mark-shot-stitcher-sidebar-test
+    tests/stitcher_sidebar_test.cpp
+    "$<FILTER:$<TARGET_OBJECTS:mark-shot-stitcher-test>,EXCLUDE,/(tests/stitcher_test\\.cpp|mocs_compilation\\.cpp)\\.(o|obj)$>"
+)
+target_include_directories(mark-shot-stitcher-sidebar-test PRIVATE src)
+target_link_libraries(mark-shot-stitcher-sidebar-test PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
+add_dependencies(mark-shot-stitcher-sidebar-test mark-shot-stitcher-test)
+add_test(NAME stitcher-sidebar COMMAND mark-shot-stitcher-sidebar-test)
 
 qt_add_executable(mark-shot-stitcher-fixed-regions-test
     tests/stitcher_fixed_regions_test.cpp
@@ -240,6 +251,8 @@ qt_add_executable(mark-shot-stitcher-fixed-regions-test
     src/scroll/stitcher_fixed_regions.h
     src/scroll/stitcher_long_image.cpp
     src/scroll/stitcher_long_image.h
+    src/scroll/stitcher_motion_mask.cpp
+    src/scroll/stitcher_motion_mask.h
 )
 target_include_directories(mark-shot-stitcher-fixed-regions-test PRIVATE src)
 target_link_libraries(mark-shot-stitcher-fixed-regions-test

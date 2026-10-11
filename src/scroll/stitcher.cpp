@@ -20,6 +20,7 @@ StitchResult Stitcher::initializeSeed(const QImage &frame, const ColSamples &fra
 {
     m_long.reset(frame, frameCols);
     m_fixedRegions.reset();
+    m_motionMask.reset();
     m_anchorPos = 0;
     m_bestBottomTrim = 0;
     m_bestTopTrim = 0;
@@ -51,7 +52,8 @@ float Stitcher::knownOverlapDiff(const ColSamples &frameCols, int framePos, int 
                                          m_config.minOverlap,
                                          m_fixedRegions.matchTopIgnore(),
                                          m_fixedRegions.matchBottomIgnore(),
-                                         overlapLen, fullTopExclude, fullBottomExclude);
+                                         overlapLen, fullTopExclude, fullBottomExclude,
+                                         m_motionMask.weights());
 }
 
 QImage Stitcher::fullImage() const
@@ -102,6 +104,7 @@ void Stitcher::setAxis(ScrollAxis axis)
     m_pendingEdge = StitchEdge::None;
     m_growthEdge = StitchEdge::None;
     m_fixedRegions.reset();
+    m_motionMask.reset();
     m_fullCacheValid = false;
 
     // The seed state is stored in the pipeline's (vertical) space, which is the

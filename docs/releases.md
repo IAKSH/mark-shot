@@ -1,5 +1,9 @@
 # Release Notes
 
+### 0.1.58
+
+- **UI-Region Hover Selection**: Moving the mouse over controls, cards, and panels outlines the region under the cursor with sub-window granularity. The mouse wheel expands or shrinks across parent and child regions, while Shift+wheel retains loupe scaling.
+
 ### 0.1.57
 
 - **Arrow Shaft Styles**: Arrow annotations support `Solid`, `Dashed`, and `Dotted` line styles for straight and bent shafts while keeping arrowheads intact.

@@ -1,3 +1,10 @@
+mark-shot (0.1.58-0ppa1~resolute1) resolute; urgency=medium
+
+  * Add UI-region hover detection on frozen screenshots.
+  * Support wheel cycling across nested region hierarchies.
+
+ -- Mark Shot maintainers <snemc@qq.com>  Tue, 13 Oct 2026 00:47:46 +0900
+
 mark-shot (0.1.57-0ppa1~resolute1) resolute; urgency=medium
 
   * Add dashed and dotted arrow shaft styles.

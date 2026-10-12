@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.58 - 2026-10-13
+
+### Features & Enhancements
+
+- **UI-Region Hover Selection**: In addition to top-level window detection, frozen screenshots are analyzed in the background to recognize UI controls, cards, and panels. Hover selection highlights smaller controls within windows and supports mouse wheel navigation across parent/child region hierarchies.
+
 ## 0.1.57 - 2026-10-12
 
 ### Features & Enhancements

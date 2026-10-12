@@ -105,6 +105,24 @@ target_link_libraries(mark-shot-window-hover-selection-test
 )
 add_test(NAME window-hover-selection COMMAND mark-shot-window-hover-selection-test)
 
+include(cmake/region_detection_sources.cmake)
+qt_add_executable(mark-shot-region-detector-test
+    tests/region_detector_test.cpp
+    ${MARK_SHOT_REGION_DETECTION_SOURCES}
+)
+target_include_directories(mark-shot-region-detector-test PRIVATE src)
+target_compile_definitions(mark-shot-region-detector-test
+    PRIVATE
+        MARK_SHOT_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+target_link_libraries(mark-shot-region-detector-test
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+)
+add_test(NAME region-detector COMMAND mark-shot-region-detector-test)
+
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME packaging-configuration
     COMMAND ${CMAKE_COMMAND} -E env PYTHONDONTWRITEBYTECODE=1

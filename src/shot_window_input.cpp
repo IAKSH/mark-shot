@@ -110,18 +110,7 @@ void ShotWindow::mouseMoveEvent(QMouseEvent *event)
         }
 
         if (!m_dragging) {
-            const QPoint imgPt = imagePoint.toPoint();
-            const std::optional<QRect> bestRect =
-                markshot::window_selection::topmostWindowRectAt(m_windowInfos, imgPt);
-            if (bestRect != m_hoveredWindowRect) {
-                if (m_hoveredWindowRect.has_value()) {
-                    dirty |= QRegion(imageRectToWidget(QRectF(*m_hoveredWindowRect)).toAlignedRect());
-                }
-                m_hoveredWindowRect = bestRect;
-                if (m_hoveredWindowRect.has_value()) {
-                    dirty |= QRegion(imageRectToWidget(QRectF(*m_hoveredWindowRect)).toAlignedRect());
-                }
-            }
+            dirty |= refreshHoveredRegion(imagePoint.toPoint());
             if (!dirty.isEmpty()) {
                 update(dirty);
             }

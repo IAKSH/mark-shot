@@ -1,9 +1,11 @@
 include(cmake/ocr_result_window_sources.cmake)
 include(cmake/editor_feature_sources.cmake)
+include(cmake/region_detection_sources.cmake)
 
 set(MARK_SHOT_WINDOW_SOURCES
     ${MARK_SHOT_OCR_WINDOW_SOURCES}
     ${MARK_SHOT_EDITOR_FEATURE_SOURCES}
+    ${MARK_SHOT_REGION_DETECTION_SOURCES}
     src/annotation_state_store.cpp
     src/annotation_state_store.h
     src/capture_cross_cursor.cpp
@@ -57,6 +59,7 @@ set(MARK_SHOT_WINDOW_SOURCES
     src/shot_window_selection_repaint.cpp
     src/shot_window_selection_input.cpp
     src/shot_window_selection_overlay.cpp
+    src/shot_window_region_detection.cpp
     src/shot_window_setup.cpp
     src/shot_window_shortcut_registration.cpp
     src/shot_window_shortcuts.cpp

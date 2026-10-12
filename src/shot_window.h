@@ -22,10 +22,14 @@
 #include "shot_window_types.h"
 #include "startup_shortcut_hint.h"
 #include "toolbar_appearance_config.h"
+#include "region_detection/region_detector.h"
 #include "ui/theme.h"
 #include "window_detection.h"
 
+#include <QFutureWatcher>
+
 #include <array>
+#include <memory>
 #include <optional>
 
 namespace markshot::ui {
@@ -175,6 +179,42 @@ private:
     void initializeTextEditor();
     void initializeLaserTimer();
     void initializeWindowDetection(QVector<markshot::WindowInfo> windowInfos, bool enabled);
+    /**
+     * 【截图】【区域识别】在后台分析冻结截图，生成 UI 级候选区域。
+     * @return 无返回值。
+     */
+    void initializeRegionDetection();
+    /**
+     * 【截图】【区域识别】接入后台检测结果，并注入窗口矩形。
+     * @param detector 后台线程生成的检测器。
+     * @return 无返回值。
+     */
+    void applyRegionDetector(std::shared_ptr<markshot::region_detection::RegionDetector> detector);
+    /**
+     * 【截图】【区域识别】查询当前指针下的 UI 或窗口候选。
+     * @param imagePoint 图像像素坐标。
+     * @return 候选矩形；没有命中时为空。
+     */
+    std::optional<QRect> hoveredRegionAt(QPoint imagePoint);
+    /**
+     * 【截图】【区域识别】更新悬停高亮并返回需要重绘的区域。
+     * @param rect 新的悬停矩形。
+     * @return 脏区域。
+     */
+    QRegion applyHoveredRect(const std::optional<QRect> &rect);
+    /**
+     * 【截图】【区域识别】按当前指针刷新悬停高亮。
+     * @param imagePoint 图像像素坐标。
+     * @return 脏区域。
+     */
+    QRegion refreshHoveredRegion(QPoint imagePoint);
+    /**
+     * 【截图】【区域识别】用滚轮在父子区域之间切换。
+     * @param imagePoint 图像像素坐标。
+     * @param direction 正值扩大到父区域，负值缩小到子区域。
+     * @return 已处理时返回 true。
+     */
+    bool cycleHoveredRegion(QPoint imagePoint, int direction);
     QPushButton *addToolbarButton(Action action, const QString &shortcutText, QWidget *parentToolbar = nullptr);
     QVector<DesktopApp> imageDesktopApps() const;
     QVector<ExtensionCommand> extensionCommands(QString *errorMessage = nullptr) const;
@@ -733,5 +773,8 @@ private:
     QVector<HistorySnapshot> m_redoStack;
     QVector<markshot::WindowInfo> m_windowInfos;
     std::optional<QRect> m_hoveredWindowRect;
+    std::unique_ptr<markshot::region_detection::RegionDetector> m_regionDetector;
+    markshot::region_detection::SelectionCursor m_regionCursor;
+    QFutureWatcher<std::shared_ptr<markshot::region_detection::RegionDetector>> *m_regionDetectorWatcher = nullptr;
     QPointF m_selectionClickStart;
 };

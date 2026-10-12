@@ -65,6 +65,27 @@ qreal annotationWidthWheelStepSize(ShotWindow::Tool tool)
  */
 void ShotWindow::wheelEvent(QWheelEvent *event)
 {
+    // 1. 【截图】【区域识别】选区阶段用滚轮在控件、面板、窗口之间切换
+    if (m_mode == Mode::Selecting
+        && !m_dragging
+        && m_startupTool != StartupTool::Ruler
+        && m_startupTool != StartupTool::ColorPicker
+        && m_regionDetector
+        && !event->modifiers().testFlag(Qt::ShiftModifier)) {
+        const int delta = event->angleDelta().y() != 0 ? event->angleDelta().y() : event->pixelDelta().y();
+        if (delta != 0) {
+            const QPoint imagePoint = selectingPointerImagePoint(event->position()).toPoint();
+            if (cycleHoveredRegion(imagePoint, delta > 0 ? 1 : -1)) {
+                if (m_frozenImageRect.contains(event->position()) || m_startupHoverValid) {
+                    m_startupHoverImagePoint = clampImagePoint(widgetToImage(event->position()));
+                    m_startupHoverValid = true;
+                }
+                event->accept();
+                return;
+            }
+        }
+    }
+
     if ((m_mode == Mode::Selecting || (canAdjustSelection() && m_dragging))
         && m_startupTool != StartupTool::Ruler
         && (m_selectionLoupeEnabled || m_startupTool == StartupTool::ColorPicker)) {
@@ -305,18 +326,7 @@ void ShotWindow::keyPressEvent(QKeyEvent *event)
                 scheduleInitialSelectionRepaint(
                     initialSelectionDirtyRegion(previousSelection, previousSelectionUsable) | dirty);
             } else {
-                const QPoint imgPt = m_startupHoverImagePoint.toPoint();
-                const std::optional<QRect> bestRect =
-                    markshot::window_selection::topmostWindowRectAt(m_windowInfos, imgPt);
-                if (bestRect != m_hoveredWindowRect) {
-                    if (m_hoveredWindowRect.has_value()) {
-                        dirty |= QRegion(imageRectToWidget(QRectF(*m_hoveredWindowRect)).toAlignedRect());
-                    }
-                    m_hoveredWindowRect = bestRect;
-                    if (m_hoveredWindowRect.has_value()) {
-                        dirty |= QRegion(imageRectToWidget(QRectF(*m_hoveredWindowRect)).toAlignedRect());
-                    }
-                }
+                dirty |= refreshHoveredRegion(m_startupHoverImagePoint.toPoint());
                 update(dirty);
             }
             event->accept();

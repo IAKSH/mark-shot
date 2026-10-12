@@ -338,6 +338,7 @@ ShotWindow::ShotWindow(QImage frozenFrame,
     initializeTextEditor();
     initializeLaserTimer();
     initializeWindowDetection(std::move(windowInfos), windowDetectionEnabled);
+    initializeRegionDetection();
 }
 
 void ShotWindow::setCaptureScreen(QScreen *screen)

@@ -1,9 +1,9 @@
 # Mark Shot User Guide
 
 This manual covers day-to-day operation of Mark Shot, with a focus on the
-**window / component hover selection** feature (moving the mouse automatically
-tracks and highlights the window under the cursor; a click selects it), the
-annotation workflow, headless capture, and configuration.
+**window / UI-region hover selection** feature (moving the mouse automatically
+tracks and highlights the window, panel, or control under the cursor; a click
+selects it), the annotation workflow, headless capture, and configuration.
 
 > The docs in this repository are authored in the community fork and mirrored
 > to the upstream and enterprise repositories. The enterprise edition adds an
@@ -41,13 +41,23 @@ upload helpers.
 
 ---
 
-## 2. Window / Component Hover Selection
+## 2. Window / UI-Region Hover Selection
 
-Mark Shot can detect the windows of the current desktop before you pick a
-region. While the selection overlay is open, **moving the mouse highlights the
-window under the cursor** with a teal frame. **A plain left click (no drag)
-selects that whole window** as the capture region; you can then annotate, copy,
-pin, or save it directly.
+While the selection overlay is open, **moving the mouse highlights the window,
+panel, or control under the cursor** with a teal frame. **A plain left click
+(no drag) selects the current highlight** as the capture region; you can then
+annotate, copy, pin, or save it directly.
+
+Hover candidates come from two layers:
+
+1. **Window detection**: top-level windows enumerated per compositor before the
+   overlay appears.
+2. **UI-region recognition**: after the overlay opens, a background analysis of
+   the frozen screenshot uses edges, color contrast, and layout cues to find
+   buttons, cards, and panels. You can still drag a region or click a window
+   while analysis is running. Window detection supplies the outer window only;
+   hover prefers controls inside that window and falls back to the window when
+   no control is found.
 
 The highlighted windows come from a per-compositor detection script that runs
 before the overlay appears:
@@ -61,9 +71,9 @@ before the overlay appears:
 | X11 | in-process XCB enumeration of `_NET_CLIENT_LIST_STACKING` | no script needed |
 | Windows | in-process `EnumWindows` | no script needed |
 
-Only **top-level windows** are tracked. Individual widgets inside a window
-("components") are not exposed by Wayland compositors, so hover selection
-targets whole windows on every platform.
+Window detection tracks **top-level windows** only. Buttons, panels, and other
+widgets inside a window are filled in by UI-region recognition on the frozen
+screenshot; compositors do not need to expose widget geometry.
 
 ### 2.1 GNOME Wayland: enable the helper extension
 
@@ -88,13 +98,18 @@ hover selection stays off (normal drag-selection still works).
 ### 2.2 How to use it
 
 1. Trigger a capture (`mark-shot` or the desktop hotkey).
-2. Without pressing any mouse button, move the cursor over a window. A teal
-   frame outlines the window that would be selected.
+2. Without pressing any mouse button, move the cursor over a window, panel, or
+   control. A teal frame outlines the region that would be selected.
 3. **Click once** (press and release without moving more than a few pixels) to
-   select that window. If windows overlap, the topmost window at the cursor
-   wins (z-order aware).
-4. Release enters the annotation editor with the window exactly framed.
-5. To make a **manual** region instead, simply drag a rectangle as usual — the
+   select the current highlight. If windows overlap, the topmost window at the
+   cursor wins; after UI-region recognition is ready, smaller controls and
+   panels are preferred.
+4. **Scroll up** expands to the parent region (control → panel → window →
+   full screen). **Scroll down** shrinks to the child under the cursor. In the
+   color-picker startup tool, the wheel still zooms the loupe; hold `Shift` to
+   zoom the selection loupe at any time.
+5. Release enters the annotation editor with the current region exactly framed.
+6. To make a **manual** region instead, simply drag a rectangle as usual — the
    hover frame is ignored as soon as the drag exceeds the click threshold.
 
 The hover highlight is disabled while the Color Picker (`C`) or Ruler (`R`)
@@ -164,7 +179,8 @@ An optional selection loupe is off by default. Enable it in
 `capture.selectionLoupe.enabled` to `true`. Arrow keys nudge the pointer by one
 pixel (Shift+arrow by ten). On Wayland, if the compositor cannot warp the
 system cursor, a software crosshair is drawn at the logical point and clicks
-follow that point. The mouse wheel resizes the loupe.
+follow that point. Outside the color picker, the mouse wheel cycles UI-region
+levels; hold `Shift` or use the color picker to resize the loupe.
 
 After selecting a region, use the Move tool to adjust it. Dragging its edges,
 corners, or interior also shows the enabled loupe. Arrow keys adjust the hovered

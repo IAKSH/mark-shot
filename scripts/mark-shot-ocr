@@ -142,6 +142,37 @@ def load_rapidocr_engine():
         raise RuntimeError(str(exc)) from exc
 
 
+# Model types rapidocr accepts per OCR version and task. rapidocr >= 3.9.0
+# defaults Det/Rec to PP-OCRv6 + "small", so forcing an OCR version without a
+# matching model_type raises "Invalid OCR configuration." at first use.
+TASK_MODEL_TYPES = {
+    "PP-OCRv4": {"Det": ("mobile", "server"), "Cls": ("mobile",), "Rec": ("mobile", "server")},
+    "PP-OCRv5": {"Det": ("mobile", "server"), "Cls": ("mobile", "server"), "Rec": ("mobile", "server")},
+    "PP-OCRv6": {"Det": ("tiny", "small", "medium"), "Rec": ("tiny", "small", "medium")},
+}
+DEFAULT_MODEL_TYPE = {
+    "PP-OCRv4": "mobile",
+    "PP-OCRv5": "mobile",
+    "PP-OCRv6": "small",
+}
+MODEL_DIR_KEYS = (
+    "Global.model_root_dir",
+    "Global.model_dir",
+    "Global.models_dir",
+    "Global.root_dir",
+    "Global.save_dir",
+    "ModelRoot",
+)
+
+
+def pick_model_type(version, task, requested):
+    allowed = TASK_MODEL_TYPES[version][task]
+    if requested in allowed:
+        return requested
+    default = DEFAULT_MODEL_TYPE[version]
+    return default if default in allowed else allowed[0]
+
+
 def build_rapidocr_engine(engine_class, backend):
     if backend != "rapidocr":
         return engine_class()
@@ -149,36 +180,32 @@ def build_rapidocr_engine(engine_class, backend):
     try:
         from rapidocr import ModelType, OCRVersion
 
-        params = {"Global.log_level": "critical"}
-        version = os.environ.get("MARK_SHOT_OCR_VERSION", "PP-OCRv5")
-        if version == "PP-OCRv5":
-            params.update(
-                {
-                    "Det.ocr_version": OCRVersion.PPOCRV5,
-                    "Cls.ocr_version": OCRVersion.PPOCRV5,
-                    "Rec.ocr_version": OCRVersion.PPOCRV5,
-                }
+        version = os.environ.get("MARK_SHOT_OCR_VERSION", "").strip() or "PP-OCRv5"
+        if version not in TASK_MODEL_TYPES:
+            print(
+                f"rapidocr: unsupported MARK_SHOT_OCR_VERSION {version!r}, using library defaults",
+                file=sys.stderr,
             )
+            version = None
 
-        model_type = os.environ.get("MARK_SHOT_OCR_MODEL_TYPE", "mobile").lower()
-        if model_type == "server":
-            params.update(
-                {
-                    "Det.model_type": ModelType.SERVER,
-                    "Cls.model_type": ModelType.SERVER,
-                    "Rec.model_type": ModelType.SERVER,
-                }
-            )
+        requested = os.environ.get("MARK_SHOT_OCR_MODEL_TYPE", "").strip().lower()
+        params = {"Global.log_level": "critical"}
+        if version is not None:
+            tasks = TASK_MODEL_TYPES[version]
+            if requested and not any(requested in allowed for allowed in tasks.values()):
+                print(
+                    f"rapidocr: model_type {requested!r} is not valid for {version}, "
+                    "using the default for each task",
+                    file=sys.stderr,
+                )
+            for task in tasks:
+                model_type = pick_model_type(version, task, requested)
+                params[f"{task}.ocr_version"] = OCRVersion(version)
+                params[f"{task}.model_type"] = ModelType(model_type)
 
         model_dir = configured_model_dir()
         os.makedirs(model_dir, exist_ok=True)
-        for key in (
-            "Global.model_dir",
-            "Global.models_dir",
-            "Global.root_dir",
-            "Global.save_dir",
-            "ModelRoot",
-        ):
+        for key in MODEL_DIR_KEYS:
             try:
                 return engine_class(params={**params, key: model_dir})
             except Exception:
